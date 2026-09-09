@@ -536,3 +536,346 @@ footer {
     display: none;
   }
 }
+
+/* Compact, responsive dashboard layout */
+main {
+  transition: grid-template-columns 0.22s ease;
+}
+main.sidebarCollapsed {
+  grid-template-columns: 0 1fr;
+}
+aside {
+  z-index: 30;
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+}
+aside.collapsed {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+.sidebarToggle {
+  position: fixed;
+  z-index: 40;
+  top: 16px;
+  left: 207px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #dfe3eb;
+  border-radius: 0 9px 9px 0;
+  background: #fff;
+  color: #5650c7;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 10px #23304a12;
+  transition: left 0.22s ease;
+}
+.sidebarCollapsed .sidebarToggle {
+  left: 12px;
+  border-radius: 9px;
+}
+.content {
+  padding: 20px 30px;
+}
+header {
+  min-height: 64px;
+  margin-bottom: 12px;
+}
+header p {
+  margin-bottom: 3px;
+}
+h1 {
+  font-size: 30px;
+  margin-bottom: 3px;
+}
+header span {
+  font-size: 11px;
+}
+.filterBar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 10px;
+  background: #fff;
+  border: 1px solid #e5e8ef;
+  border-radius: 10px;
+  box-shadow: 0 3px 14px #23304a08;
+}
+.filterToggle {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #eeeefb;
+  color: #5650c7;
+  font-weight: 800;
+  cursor: pointer;
+}
+.filterToggle b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 5px;
+  border-radius: 9px;
+  background: #625bd8;
+  color: white;
+  font-size: 9px;
+}
+.filterToggle span {
+  margin-left: 8px;
+  font-size: 8px;
+}
+.filterBar .search {
+  height: 34px;
+  min-width: 240px;
+}
+.resultCount {
+  margin-left: auto;
+  color: #7a8495;
+  font-size: 11px;
+}
+.filterPanel {
+  display: none;
+  position: sticky;
+  top: 49px;
+  z-index: 19;
+  padding: 8px 10px;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 8px 18px #23304a10;
+}
+.filterPanel.open {
+  display: flex;
+}
+.filterPanel select {
+  height: 34px;
+  margin-top: 3px;
+}
+.filterPanel > button {
+  height: 34px;
+}
+.scope {
+  height: 30px;
+}
+.broadSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 10px;
+}
+.broadSummary button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  min-height: 72px;
+  padding: 10px 14px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e5e8ef;
+  border-left: 4px solid #625bd8;
+  border-radius: 9px;
+  cursor: pointer;
+  color: #1d2638;
+}
+.broadSummary button.pending {
+  border-left-color: #f3a338;
+}
+.broadSummary button.other {
+  border-left-color: #2fb298;
+}
+.broadSummary button.selected {
+  background: #f3f2ff;
+  box-shadow: 0 5px 14px #25304a14;
+}
+.broadSummary small {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: #7f899c;
+  font-weight: 800;
+}
+.broadSummary b {
+  grid-row: span 2;
+  font-family: Georgia, serif;
+  font-size: 28px;
+}
+.broadSummary span {
+  font-size: 9px;
+  color: #98a0ad;
+}
+.statusGroups {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+.statusGroup {
+  padding: 12px;
+  border: 1px solid #e5e8ef;
+  border-radius: 10px;
+  background: #fff;
+}
+.pendingGroup {
+  border-top: 3px solid #f3a338;
+}
+.otherGroup {
+  border-top: 3px solid #2fb298;
+}
+.groupHeading {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 9px;
+  color: #657084;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.statusCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(115px, 1fr));
+  gap: 7px;
+}
+.otherGroup .statusCards {
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+}
+.statusCards button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 7px 10px;
+  border: 1px solid #e8eaf0;
+  border-left: 3px solid #625bd8;
+  border-radius: 7px;
+  background: #fafbfc;
+  color: #536075;
+  cursor: pointer;
+}
+.statusCards button:hover,
+.statusCards button.selected {
+  background: #f0efff;
+  border-color: #625bd8;
+}
+.statusCards span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+.statusCards b {
+  margin-left: 8px;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #172033;
+}
+.tablePanel {
+  min-height: 320px;
+  padding: 15px;
+}
+.tablePanel .panelTitle h2 {
+  margin-bottom: 9px;
+}
+
+@media (max-width: 900px) {
+  .content {
+    padding: 18px;
+  }
+  .statusGroups {
+    grid-template-columns: 1fr;
+  }
+  .filterPanel.open {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 700px) {
+  main,
+  main.sidebarCollapsed {
+    display: block;
+  }
+  aside {
+    display: flex;
+    position: fixed;
+    left: 0;
+    width: 228px;
+    box-shadow: 8px 0 24px #10182a35;
+  }
+  aside.collapsed {
+    display: flex;
+  }
+  .sidebarToggle {
+    left: 207px;
+    top: 10px;
+  }
+  .sidebarCollapsed .sidebarToggle {
+    left: 10px;
+  }
+  .content {
+    padding: 12px;
+  }
+  header {
+    padding-left: 40px;
+    min-height: 54px;
+  }
+  h1 {
+    font-size: 25px;
+  }
+  header p,
+  header span {
+    display: none;
+  }
+  .filterBar {
+    top: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+  }
+  .filterBar .search {
+    min-width: 0;
+    width: 100%;
+  }
+  .resultCount {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .filterPanel {
+    top: 79px;
+  }
+  .filterPanel.open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .filterPanel label,
+  .filterPanel select,
+  .filterPanel > button {
+    width: 100%;
+  }
+  .broadSummary {
+    grid-template-columns: 1fr;
+  }
+  .statusCards,
+  .otherGroup .statusCards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .scope {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .tableScroll {
+    margin: 0 -15px;
+  }
+  table {
+    min-width: 720px;
+  }
+}
+
+@media (max-width: 420px) {
+  .filterPanel.open,
+  .statusCards,
+  .otherGroup .statusCards {
+    grid-template-columns: 1fr;
+  }
+}
