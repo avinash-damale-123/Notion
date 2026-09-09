@@ -180,15 +180,29 @@ function StatusDetails({ tasks }: { tasks: Task[] }) {
   const [selected, setSelected] = useState("All Tasks");
   const statuses = group(tasks, "status");
   const pending = tasks.filter(isPending);
+  const completedAndOther = tasks.filter((task) => !isPending(task));
+  const pendingStatuses = statuses.filter(([status]) =>
+    PENDING_STATUSES.some(
+      (item) => item.toLowerCase() === status.toLowerCase(),
+    ),
+  );
+  const otherStatuses = statuses.filter(
+    ([status]) =>
+      !PENDING_STATUSES.some(
+        (item) => item.toLowerCase() === status.toLowerCase(),
+      ),
+  );
   const visible =
     selected === "All Tasks"
       ? tasks
       : selected === "Pending Tasks"
         ? pending
-        : tasks.filter((task) => task.status === selected);
+        : selected === "Completed & Other"
+          ? completedAndOther
+          : tasks.filter((task) => task.status === selected);
   return (
     <div className="detailsStack">
-      <div className="summaryCards">
+      <div className="broadSummary">
         <button
           className={selected === "All Tasks" ? "selected" : ""}
           onClick={() => setSelected("All Tasks")}
@@ -209,18 +223,61 @@ function StatusDetails({ tasks }: { tasks: Task[] }) {
             {percent(pending.length, tasks.length)}% of selected tasks
           </span>
         </button>
-        {statuses.map(([status, count], index) => (
-          <button
-            key={status}
-            className={selected === status ? "selected" : ""}
-            onClick={() => setSelected(status)}
-            style={{ borderTopColor: COLORS[index % COLORS.length] }}
-          >
-            <small>{status.toUpperCase()}</small>
-            <b>{count}</b>
-            <span>Click to view tasks</span>
-          </button>
-        ))}
+        <button
+          className={
+            selected === "Completed & Other" ? "selected other" : "other"
+          }
+          onClick={() => setSelected("Completed & Other")}
+        >
+          <small>COMPLETED + OTHER</small>
+          <b>{completedAndOther.length}</b>
+          <span>
+            {percent(completedAndOther.length, tasks.length)}% of selected tasks
+          </span>
+        </button>
+      </div>
+      <div className="statusGroups">
+        <section className="statusGroup pendingGroup">
+          <div className="groupHeading">
+            <span>Pending statuses</span>
+            <b>{pending.length}</b>
+          </div>
+          <div className="statusCards">
+            {pendingStatuses.map(([status, count], index) => (
+              <button
+                key={status}
+                className={selected === status ? "selected" : ""}
+                onClick={() => setSelected(status)}
+                style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+              >
+                <span>{status}</span>
+                <b>{count}</b>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className="statusGroup otherGroup">
+          <div className="groupHeading">
+            <span>Completed & other statuses</span>
+            <b>{completedAndOther.length}</b>
+          </div>
+          <div className="statusCards">
+            {otherStatuses.map(([status, count], index) => (
+              <button
+                key={status}
+                className={selected === status ? "selected" : ""}
+                onClick={() => setSelected(status)}
+                style={{
+                  borderLeftColor:
+                    COLORS[(index + pendingStatuses.length) % COLORS.length],
+                }}
+              >
+                <span>{status}</span>
+                <b>{count}</b>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
       <article className="panel tablePanel">
         <div className="panelTitle split">
@@ -244,7 +301,10 @@ export default function Home() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [view, setView] = useState("Overview");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   useEffect(() => {
+    setSidebarOpen(!window.matchMedia("(max-width: 700px)").matches);
     fetch("/api/tasks")
       .then((response) => response.json())
       .then((result) => {
@@ -295,10 +355,36 @@ export default function Home() {
     setFilters({});
     setQuery("");
   };
+  const filterOptions = (key: keyof Task) => {
+    const relevant = all.filter((task) =>
+      FILTERS.every(
+        ([, otherKey]) =>
+          otherKey === key ||
+          !filters[otherKey] ||
+          String(task[otherKey]) === filters[otherKey],
+      ),
+    );
+    return unique(relevant.map((task) => String(task[key])));
+  };
+  const changeFilter = (key: keyof Task, value: string) => {
+    setFilters((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "project") next.subProject = "";
+      if (key === "type") next.owner = "";
+      return next;
+    });
+  };
 
   return (
-    <main>
-      <aside>
+    <main className={sidebarOpen ? "" : "sidebarCollapsed"}>
+      <button
+        className="sidebarToggle"
+        onClick={() => setSidebarOpen((open) => !open)}
+        aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+      >
+        {sidebarOpen ? "‹" : "☰"}
+      </button>
+      <aside className={sidebarOpen ? "open" : "collapsed"}>
         <div className="brand">
           <span>W</span>
           <div>
@@ -314,7 +400,11 @@ export default function Home() {
         ].map((item) => (
           <button
             className={view === item ? "active" : ""}
-            onClick={() => setView(item)}
+            onClick={() => {
+              setView(item);
+              if (window.matchMedia("(max-width: 700px)").matches)
+                setSidebarOpen(false);
+            }}
             key={item}
           >
             {item}
@@ -356,7 +446,14 @@ export default function Home() {
             with the same Notion integration to activate all filters.
           </div>
         )}
-        <div className="filterPanel">
+        <div className="filterBar">
+          <button
+            className="filterToggle"
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            Filters <b>{Object.values(filters).filter(Boolean).length}</b>
+            <span>{filtersOpen ? "▲" : "▼"}</span>
+          </button>
           <div className="search">
             ⌕{" "}
             <input
@@ -365,20 +462,20 @@ export default function Home() {
               placeholder="Search tasks…"
             />
           </div>
+          <span className="resultCount">
+            <b>{data.length}</b> / {all.length} tasks
+          </span>
+        </div>
+        <div className={filtersOpen ? "filterPanel open" : "filterPanel"}>
           {FILTERS.map(([label, key]) => (
             <label key={key}>
               {label}
               <select
                 value={filters[key] || ""}
-                onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    [key]: event.target.value,
-                  }))
-                }
+                onChange={(event) => changeFilter(key, event.target.value)}
               >
                 <option value="">All</option>
-                {unique(all.map((task) => String(task[key]))).map((value) => (
+                {filterOptions(key).map((value) => (
                   <option value={value} key={value}>
                     {value}
                   </option>
