@@ -1,10 +1,514 @@
-// @ts-nocheck
 "use client";
-import { useEffect,useMemo,useState } from "react"; import type { Task } from "../lib/notion";
-const COLORS=["#5b5bd6","#33b6a0","#f3a338","#ef6b73","#7c66dc","#3b82c4","#8ca75a","#9aa3b2"];
-const pct=(n:number,d:number)=>d?Math.round(n/d*100):0; const uniq=(a:string[])=>[...new Set(a)].sort();
-function Donut({data}:{data:[string,number][]}){const total=data.reduce((s,x)=>s+x[1],0);let offset=0;return <div className="donutWrap"><svg viewBox="0 0 42 42" className="donut"><circle cx="21" cy="21" r="15.9" fill="none" stroke="#edf0f6" strokeWidth="5"/>{data.map((d,i)=>{const p=d[1]/total*100,o=offset;offset+=p;return <circle key={d[0]} cx="21" cy="21" r="15.9" fill="none" stroke={COLORS[i%COLORS.length]} strokeWidth="5" strokeDasharray={`${p} ${100-p}`} strokeDashoffset={-o} transform="rotate(-90 21 21)"/>})}<text x="21" y="20" textAnchor="middle" className="big">{total}</text><text x="21" y="25" textAnchor="middle" className="small">TASKS</text></svg><div className="legend">{data.map((d,i)=><div key={d[0]}><i style={{background:COLORS[i%COLORS.length]}}/><span>{d[0]}</span><b>{d[1]}</b></div>)}</div></div>}
-function Bars({data}:{data:[string,number][]}){const max=Math.max(...data.map(x=>x[1]),1);return <div className="bars">{data.slice(0,8).map((d,i)=><div className="barRow" key={d[0]}><span title={d[0]}>{d[0]}</span><div><i style={{width:`${d[1]/max*100}%`,background:COLORS[i%COLORS.length]}}/></div><b>{d[1]}</b></div>)}</div>}
-function group(tasks:Task[],key:keyof Task){const m=new Map<string,number>();tasks.forEach(t=>m.set(String(t[key]||"Unassigned"),(m.get(String(t[key]||"Unassigned"))||0)+1));return [...m.entries()].sort((a,b)=>b[1]-a[1]) as [string,number][]}
-export default function Home(){const [all,setAll]=useState<Task[]>([]);const [meta,setMeta]=useState<any>({});const [filters,setFilters]=useState<Record<string,string>>({});const [q,setQ]=useState("");const [view,setView]=useState("Overview");useEffect(()=>{fetch("/api/tasks").then(r=>r.json()).then(d=>{setAll(d.tasks);setMeta(d)})},[]);const keys:[[string,keyof Task]]|any=[["Project","project"],["Sub-project","subProject"],["Status","status"],["Task type","type"],["Owner / person","owner"]];const data=useMemo(()=>all.filter(t=>(!q||t.name.toLowerCase().includes(q.toLowerCase()))&&keys.every((x:any)=>!filters[x[1]]||t[x[1]]===filters[x[1]])),[all,filters,q]);const today=new Date().toISOString().slice(0,10);const done=data.filter(t=>t.status==="Completed").length,overdue=data.filter(t=>t.dueDate&&t.dueDate<today&&t.status!=="Completed").length,due=data.filter(t=>t.dueDate).length,avg=data.length?Math.round(data.reduce((s,t)=>s+t.progress,0)/data.length):0;const weightTotal=data.reduce((s,t)=>s+t.weight,0),weightDone=data.reduce((s,t)=>s+t.weight*t.progress/100,0);const set=(k:string,v:string)=>setFilters(f=>({...f,[k]:v}));return <main><aside><div className="brand"><span>W</span><div>MY WORK<small>PERFORMANCE HUB</small></div></div>{["Overview","Projects","People","Task register"].map(x=><button className={view===x?"active":""} onClick={()=>setView(x)} key={x}>{x}</button>)}<div className="sideFoot"><b>NOTION CONNECTED</b><span className={meta.source==="notion"?"live":"demo"}/><small>{meta.source==="notion"?"Live workspace data":"Preview data"}</small></div></aside><section className="content"><header><div><p>PERSONAL OPERATIONS</p><h1>{view}</h1><span>One view of tasks, accountability and delivery health.</span></div><div className="sync">Last refreshed<br/><b>{meta.syncedAt?new Date(meta.syncedAt).toLocaleString():"Loading…"}</b></div></header><div className="filterPanel"><div className="search">⌕ <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search tasks…"/></div>{keys.map(([label,key]:any)=><label key={key}>{label}<select value={filters[key]||""} onChange={e=>set(key,e.target.value)}><option value="">All</option>{uniq(all.map(t=>String(t[key]))).map(v=><option key={v}>{v}</option>)}</select></label>)}<button onClick={()=>{setFilters({});setQ("")}}>Reset</button></div><div className="scope"><span>Showing <b>{data.length}</b> of {all.length} tasks</span>{Object.values(filters).filter(Boolean).map(v=><em key={v}>{v}</em>)}</div><div className="kpis"><article><small>TOTAL TASKS</small><b>{data.length}</b><span>Current selection</span></article><article><small>COMPLETION RATE</small><b>{pct(done,data.length)}%</b><span>{done} tasks completed</span></article><article className={overdue?"risk":""}><small>OVERDUE</small><b>{overdue}</b><span>{due} tasks have due dates</span></article><article><small>AVERAGE PROGRESS</small><b>{avg}%</b><span>Across selected tasks</span></article><article><small>WEIGHTED DELIVERY</small><b>{weightTotal?Math.round(weightDone/weightTotal*100):0}%</b><span>Adjusted for task weight</span></article></div>{view==="Overview"&&<div className="grid"><article className="panel wide"><div className="panelTitle"><div><small>PORTFOLIO HEALTH</small><h2>Task status</h2></div></div><Donut data={group(data,"status")}/></article><article className="panel"><small>DELIVERY FOCUS</small><h2>Project workload</h2><Bars data={group(data,"project")}/></article><article className="panel"><small>ACCOUNTABILITY</small><h2>Person-wise allocation</h2><Bars data={group(data,"owner")}/></article><article className="panel quality"><small>DATA QUALITY</small><h2>Planning completeness</h2>{[["Owner assigned",data.filter(t=>t.owner!=="Unassigned").length],["Project assigned",data.filter(t=>t.project!=="Unassigned").length],["Due date entered",due],["Weightage entered",data.filter(t=>t.weight>0).length],["Progress updated",data.filter(t=>t.progress>0).length]].map(x=><div key={x[0] as string}><span>{x[0]}</span><progress value={x[1] as number} max={data.length}/><b>{pct(x[1] as number,data.length)}%</b></div>)}</article></div>}{view!=="Overview"&&<div className="panel tablePanel"><div className="panelTitle"><div><small>DETAILED VIEW</small><h2>{view==="Projects"?"Project and sub-project performance":view==="People"?"Person-wise performance":"Complete task register"}</h2></div></div>{view==="Projects"?<Bars data={group(data,"subProject")}/>:view==="People"?<Bars data={group(data,"owner")}/>:<TaskTable tasks={data}/>}</div>}<footer>My Work Performance Hub · Source: Notion · Filters apply across every metric</footer></section></main>}
-function TaskTable({tasks}:{tasks:Task[]}){return <div className="tableScroll"><table><thead><tr><th>Task</th><th>Project</th><th>Status</th><th>Owner</th><th>Due date</th><th>Progress</th><th>Weight</th></tr></thead><tbody>{tasks.map(t=><tr key={t.id}><td><b>{t.name}</b><small>{t.subProject}</small></td><td>{t.project}</td><td><em>{t.status}</em></td><td>{t.owner}</td><td className={t.dueDate&&t.dueDate<new Date().toISOString().slice(0,10)&&t.status!=="Completed"?"red":""}>{t.dueDate||"—"}</td><td><progress value={t.progress} max="100"/> {t.progress}%</td><td>{t.weight||"—"}</td></tr>)}</tbody></table></div>}
+
+import { useEffect, useMemo, useState } from "react";
+import type { Task } from "../lib/notion";
+
+const COLORS = [
+  "#5b5bd6",
+  "#33b6a0",
+  "#f3a338",
+  "#ef6b73",
+  "#7c66dc",
+  "#3b82c4",
+  "#8ca75a",
+  "#9aa3b2",
+];
+const PENDING_STATUSES = [
+  "Review Later",
+  "To Do (New)",
+  "Do It Now",
+  "Reminders",
+  "(In-Process)-Self",
+  "In Process—Self",
+  "Allocated to team",
+  "Allocated to Team",
+];
+const FILTERS: Array<[string, keyof Task]> = [
+  ["Project", "project"],
+  ["Sub-project", "subProject"],
+  ["Status", "status"],
+  ["Task type", "type"],
+  ["Owner / person", "owner"],
+];
+const unique = (values: string[]) =>
+  [...new Set(values.filter(Boolean))].sort();
+const percent = (value: number, total: number) =>
+  total ? Math.round((value / total) * 100) : 0;
+const isPending = (task: Task) =>
+  PENDING_STATUSES.some(
+    (status) => status.toLowerCase() === task.status.toLowerCase(),
+  );
+
+function group(tasks: Task[], key: keyof Task): [string, number][] {
+  const groups = new Map<string, number>();
+  tasks.forEach((task) => {
+    const value = String(task[key] || "Unassigned");
+    groups.set(value, (groups.get(value) || 0) + 1);
+  });
+  return [...groups.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function Donut({ data }: { data: [string, number][] }) {
+  const total = data.reduce((sum, item) => sum + item[1], 0);
+  let offset = 0;
+  return (
+    <div className="donutWrap">
+      <svg viewBox="0 0 42 42" className="donut">
+        <circle
+          cx="21"
+          cy="21"
+          r="15.9"
+          fill="none"
+          stroke="#edf0f6"
+          strokeWidth="5"
+        />
+        {data.map((item, index) => {
+          const share = total ? (item[1] / total) * 100 : 0;
+          const start = offset;
+          offset += share;
+          return (
+            <circle
+              key={item[0]}
+              cx="21"
+              cy="21"
+              r="15.9"
+              fill="none"
+              stroke={COLORS[index % COLORS.length]}
+              strokeWidth="5"
+              strokeDasharray={`${share} ${100 - share}`}
+              strokeDashoffset={-start}
+              transform="rotate(-90 21 21)"
+            />
+          );
+        })}
+        <text x="21" y="20" textAnchor="middle" className="big">
+          {total}
+        </text>
+        <text x="21" y="25" textAnchor="middle" className="small">
+          TASKS
+        </text>
+      </svg>
+      <div className="legend">
+        {data.map((item, index) => (
+          <div key={item[0]}>
+            <i style={{ background: COLORS[index % COLORS.length] }} />
+            <span>{item[0]}</span>
+            <b>{item[1]}</b>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Bars({ data }: { data: [string, number][] }) {
+  const max = Math.max(...data.map((item) => item[1]), 1);
+  return (
+    <div className="bars">
+      {data.slice(0, 10).map((item, index) => (
+        <div className="barRow" key={item[0]}>
+          <span title={item[0]}>{item[0]}</span>
+          <div>
+            <i
+              style={{
+                width: `${(item[1] / max) * 100}%`,
+                background: COLORS[index % COLORS.length],
+              }}
+            />
+          </div>
+          <b>{item[1]}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TaskTable({ tasks }: { tasks: Task[] }) {
+  if (!tasks.length)
+    return <div className="emptyState">No tasks match this selection.</div>;
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div className="tableScroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Project</th>
+            <th>Status</th>
+            <th>Owner</th>
+            <th>Due date</th>
+            <th>Progress</th>
+            <th>Weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((task) => (
+            <tr key={task.id}>
+              <td>
+                <b>{task.name}</b>
+                <small>{task.subProject}</small>
+              </td>
+              <td>{task.project}</td>
+              <td>
+                <em>{task.status}</em>
+              </td>
+              <td>{task.owner}</td>
+              <td
+                className={
+                  task.dueDate &&
+                  task.dueDate < today &&
+                  task.status !== "Completed"
+                    ? "red"
+                    : ""
+                }
+              >
+                {task.dueDate || "—"}
+              </td>
+              <td>
+                <progress value={task.progress} max="100" /> {task.progress}%
+              </td>
+              <td>{task.weight || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function StatusDetails({ tasks }: { tasks: Task[] }) {
+  const [selected, setSelected] = useState("All Tasks");
+  const statuses = group(tasks, "status");
+  const pending = tasks.filter(isPending);
+  const visible =
+    selected === "All Tasks"
+      ? tasks
+      : selected === "Pending Tasks"
+        ? pending
+        : tasks.filter((task) => task.status === selected);
+  return (
+    <div className="detailsStack">
+      <div className="summaryCards">
+        <button
+          className={selected === "All Tasks" ? "selected" : ""}
+          onClick={() => setSelected("All Tasks")}
+        >
+          <small>TOTAL TASKS</small>
+          <b>{tasks.length}</b>
+          <span>Click to show every task</span>
+        </button>
+        <button
+          className={
+            selected === "Pending Tasks" ? "selected pending" : "pending"
+          }
+          onClick={() => setSelected("Pending Tasks")}
+        >
+          <small>PENDING TASKS</small>
+          <b>{pending.length}</b>
+          <span>
+            {percent(pending.length, tasks.length)}% of selected tasks
+          </span>
+        </button>
+        {statuses.map(([status, count], index) => (
+          <button
+            key={status}
+            className={selected === status ? "selected" : ""}
+            onClick={() => setSelected(status)}
+            style={{ borderTopColor: COLORS[index % COLORS.length] }}
+          >
+            <small>{status.toUpperCase()}</small>
+            <b>{count}</b>
+            <span>Click to view tasks</span>
+          </button>
+        ))}
+      </div>
+      <article className="panel tablePanel">
+        <div className="panelTitle split">
+          <div>
+            <small>STATUS DRILL-DOWN</small>
+            <h2>{selected}</h2>
+          </div>
+          <strong>
+            {visible.length} task{visible.length === 1 ? "" : "s"}
+          </strong>
+        </div>
+        <TaskTable tasks={visible} />
+      </article>
+    </div>
+  );
+}
+
+export default function Home() {
+  const [all, setAll] = useState<Task[]>([]);
+  const [meta, setMeta] = useState<{ source?: string; syncedAt?: string }>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [query, setQuery] = useState("");
+  const [view, setView] = useState("Overview");
+  useEffect(() => {
+    fetch("/api/tasks")
+      .then((response) => response.json())
+      .then((result) => {
+        setAll(result.tasks);
+        setMeta(result);
+      });
+  }, []);
+  const data = useMemo(
+    () =>
+      all.filter(
+        (task) =>
+          (!query || task.name.toLowerCase().includes(query.toLowerCase())) &&
+          FILTERS.every(
+            ([, key]) => !filters[key] || String(task[key]) === filters[key],
+          ),
+      ),
+    [all, filters, query],
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const completed = data.filter(
+    (task) => task.status.toLowerCase() === "completed",
+  ).length;
+  const overdue = data.filter(
+    (task) =>
+      task.dueDate &&
+      task.dueDate < today &&
+      task.status.toLowerCase() !== "completed",
+  ).length;
+  const dueDates = data.filter((task) => task.dueDate).length;
+  const averageProgress = data.length
+    ? Math.round(
+        data.reduce((sum, task) => sum + task.progress, 0) / data.length,
+      )
+    : 0;
+  const totalWeight = data.reduce((sum, task) => sum + task.weight, 0);
+  const weightedProgress = data.reduce(
+    (sum, task) => sum + (task.weight * task.progress) / 100,
+    0,
+  );
+  const relationsMissing =
+    all.length > 0 &&
+    ["project", "subProject", "status", "type", "owner"].filter(
+      (key) =>
+        all.filter((task) => task[key as keyof Task] === "Unassigned").length >
+        all.length * 0.8,
+    ).length >= 2;
+  const reset = () => {
+    setFilters({});
+    setQuery("");
+  };
+
+  return (
+    <main>
+      <aside>
+        <div className="brand">
+          <span>W</span>
+          <div>
+            MY WORK<small>PERFORMANCE HUB</small>
+          </div>
+        </div>
+        {[
+          "Overview",
+          "Task Details",
+          "Projects",
+          "People",
+          "Task Register",
+        ].map((item) => (
+          <button
+            className={view === item ? "active" : ""}
+            onClick={() => setView(item)}
+            key={item}
+          >
+            {item}
+          </button>
+        ))}
+        <div className="sideFoot">
+          <b>NOTION CONNECTED</b>
+          <span className={meta.source === "notion" ? "live" : "demo"} />
+          <small>
+            {meta.source === "notion" ? "Live workspace data" : "Preview data"}
+          </small>
+        </div>
+      </aside>
+      <section className="content">
+        <header>
+          <div>
+            <p>PERSONAL OPERATIONS</p>
+            <h1>{view}</h1>
+            <span>
+              {view === "Task Details"
+                ? "Click any status count to see the actual tasks behind it."
+                : "One view of tasks, accountability and delivery health."}
+            </span>
+          </div>
+          <div className="sync">
+            Last refreshed
+            <br />
+            <b>
+              {meta.syncedAt
+                ? new Date(meta.syncedAt).toLocaleString()
+                : "Loading…"}
+            </b>
+          </div>
+        </header>
+        {relationsMissing && (
+          <div className="warning">
+            <b>Related Notion databases are not accessible.</b> Share Main
+            Projects, Sub Projects, Task Status, Team Allocated and Team Name
+            with the same Notion integration to activate all filters.
+          </div>
+        )}
+        <div className="filterPanel">
+          <div className="search">
+            ⌕{" "}
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search tasks…"
+            />
+          </div>
+          {FILTERS.map(([label, key]) => (
+            <label key={key}>
+              {label}
+              <select
+                value={filters[key] || ""}
+                onChange={(event) =>
+                  setFilters((current) => ({
+                    ...current,
+                    [key]: event.target.value,
+                  }))
+                }
+              >
+                <option value="">All</option>
+                {unique(all.map((task) => String(task[key]))).map((value) => (
+                  <option value={value} key={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <button onClick={reset}>Reset</button>
+        </div>
+        <div className="scope">
+          <span>
+            Showing <b>{data.length}</b> of {all.length} tasks
+          </span>
+          {Object.entries(filters)
+            .filter(([, value]) => value)
+            .map(([key, value]) => (
+              <em key={key}>{value}</em>
+            ))}
+        </div>
+        {view !== "Task Details" && (
+          <div className="kpis">
+            <article>
+              <small>TOTAL TASKS</small>
+              <b>{data.length}</b>
+              <span>Current selection</span>
+            </article>
+            <article>
+              <small>COMPLETION RATE</small>
+              <b>{percent(completed, data.length)}%</b>
+              <span>{completed} tasks completed</span>
+            </article>
+            <article>
+              <small>OVERDUE</small>
+              <b>{overdue}</b>
+              <span>{dueDates} tasks have due dates</span>
+            </article>
+            <article>
+              <small>AVERAGE PROGRESS</small>
+              <b>{averageProgress}%</b>
+              <span>Across selected tasks</span>
+            </article>
+            <article>
+              <small>WEIGHTED DELIVERY</small>
+              <b>
+                {totalWeight
+                  ? Math.round((weightedProgress / totalWeight) * 100)
+                  : 0}
+                %
+              </b>
+              <span>Adjusted for task weight</span>
+            </article>
+          </div>
+        )}
+        {view === "Task Details" && <StatusDetails tasks={data} />}{" "}
+        {view === "Overview" && (
+          <div className="grid">
+            <article className="panel wide">
+              <div className="panelTitle">
+                <small>PORTFOLIO HEALTH</small>
+                <h2>Task status</h2>
+              </div>
+              <Donut data={group(data, "status")} />
+            </article>
+            <article className="panel">
+              <small>DELIVERY FOCUS</small>
+              <h2>Project workload</h2>
+              <Bars data={group(data, "project")} />
+            </article>
+            <article className="panel">
+              <small>ACCOUNTABILITY</small>
+              <h2>Person-wise allocation</h2>
+              <Bars data={group(data, "owner")} />
+            </article>
+            <article className="panel quality">
+              <small>DATA QUALITY</small>
+              <h2>Planning completeness</h2>
+              {[
+                [
+                  "Owner assigned",
+                  data.filter((task) => task.owner !== "Unassigned").length,
+                ],
+                [
+                  "Project assigned",
+                  data.filter((task) => task.project !== "Unassigned").length,
+                ],
+                ["Due date entered", dueDates],
+                [
+                  "Weightage entered",
+                  data.filter((task) => task.weight > 0).length,
+                ],
+                [
+                  "Progress updated",
+                  data.filter((task) => task.progress > 0).length,
+                ],
+              ].map(([label, count]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <progress value={count as number} max={data.length} />
+                  <b>{percent(count as number, data.length)}%</b>
+                </div>
+              ))}
+            </article>
+          </div>
+        )}
+        {view !== "Overview" && view !== "Task Details" && (
+          <article className="panel tablePanel">
+            <div className="panelTitle">
+              <small>DETAILED VIEW</small>
+              <h2>
+                {view === "Projects"
+                  ? "Project and sub-project performance"
+                  : view === "People"
+                    ? "Person-wise performance"
+                    : "Complete task register"}
+              </h2>
+            </div>
+            {view === "Projects" ? (
+              <Bars data={group(data, "subProject")} />
+            ) : view === "People" ? (
+              <Bars data={group(data, "owner")} />
+            ) : (
+              <TaskTable tasks={data} />
+            )}
+          </article>
+        )}
+        <footer>
+          My Work Performance Hub · Source: Notion · Filters apply across every
+          metric
+        </footer>
+      </section>
+    </main>
+  );
+}
